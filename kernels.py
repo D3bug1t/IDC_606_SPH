@@ -1,34 +1,40 @@
-import numpy as np
+import warp as wp
 
-def W(dx, dy, h):
-    r = np.sqrt(dx**2 + dy**2)
+PI = 3.141592653589793
+
+
+@wp.func
+def W_xy(dx: float, dy: float, h: float):
+    # monaghan cubic spline kernel
+    r = wp.sqrt(dx * dx + dy * dy)
     q = r / h
-    sigma = 10.0 / (7.0 * np.pi * h**2)
+    sigma = 10.0 / (7.0 * PI * h * h)
 
-    w = np.zeros_like(q)
-    mask1 = q < 1.0
-    mask2 = (q >= 1.0) & (q < 2.0)
-
-    w[mask1] = 1.0 - 1.5*q[mask1]**2 + 0.75*q[mask1]**3
-    w[mask2] = 0.25*(2.0 - q[mask2])**3
+    w = 0.0
+    if q < 1.0:
+        w = 1.0 - 1.5 * q * q + 0.75 * q * q * q
+    elif q < 2.0:
+        t = 2.0 - q
+        w = 0.25 * t * t * t
 
     return sigma * w
 
 
-def gradW(dx, dy, h):
-    r = np.sqrt(dx**2 + dy**2)
+@wp.func
+def gradW_xy(dx: float, dy: float, h: float):
+    r = wp.sqrt(dx * dx + dy * dy)
+    if r <= 1.0e-12:
+        return wp.vec2(0.0, 0.0)
+
     q = r / h
-    sigma = 10.0 / (7.0 * np.pi * h**2)
+    sigma = 10.0 / (7.0 * PI * h * h)
 
-    dwdq = np.zeros_like(q)
-    mask1 = q < 1.0
-    mask2 = (q >= 1.0) & (q < 2.0)
+    dwdq = 0.0
+    if q < 1.0:
+        dwdq = -3.0 * q + 2.25 * q * q
+    elif q < 2.0:
+        t = 2.0 - q
+        dwdq = -0.75 * t * t
 
-    dwdq[mask1] = -3.0*q[mask1] + 2.25*q[mask1]**2
-    dwdq[mask2] = -0.75*(2.0 - q[mask2])**2
-
-    r_safe = np.where(r > 1e-12, r, 1.0)
-    factor = sigma * dwdq / (h * r_safe)
-    factor = np.where(r > 1e-12, factor, 0.0)
-
-    return factor * dx, factor * dy
+    factor = sigma * dwdq / (h * r)
+    return wp.vec2(factor * dx, factor * dy)

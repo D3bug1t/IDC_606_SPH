@@ -1,12 +1,31 @@
-import numpy as np
-from kernels import W
+import warp as wp
+from kernels import W_xy
 
-def pairwise(pos):
-    dx = pos[:, 0:1] - pos[:, 0:1].T ## Basically creading a ditance matrix in x direction
-    dy = pos[:, 1:2] - pos[:, 1:2].T ## Same as above but in y direction (column - row vector creates a matrix)
-    #(I prefer dist(x) in R tho)
-    return dx, dy
 
-def compute_density(pos, m, h):
-    dx, dy = pairwise(pos)
-    return np.sum(m * W(dx, dy, h), axis=1, keepdims=True)
+@wp.kernel
+def _density_kernel(
+    pos: wp.array(dtype=wp.vec2),
+    m: float,
+    h: float,
+    rho: wp.array(dtype=float),
+):
+    i = wp.tid()
+    N = pos.shape[0]
+
+    rho_i = 0.0
+    p_i = pos[i]
+
+    for j in range(N):
+        dp = p_i - pos[j]
+        rho_i += m * W_xy(dp[0], dp[1], h)
+
+    rho[i] = rho_i
+
+
+def compute_density(pos, m, h, rho_out):
+    wp.launch(
+        kernel=_density_kernel,
+        dim=pos.shape[0],
+        inputs=[pos, m, h, rho_out],
+    )
+    return rho_out

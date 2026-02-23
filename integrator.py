@@ -1,5 +1,22 @@
+import warp as wp
+
+
+@wp.kernel
+def _leapfrog_kernel(
+    pos: wp.array(dtype=wp.vec2),
+    vel: wp.array(dtype=wp.vec2),
+    acc: wp.array(dtype=wp.vec2),
+    dt: float,
+):
+    i = wp.tid()
+    v = vel[i]
+    a = acc[i]
+
+    v = v + a * (0.5 * dt)
+    pos[i] = pos[i] + v * dt
+    vel[i] = v + a * (0.5 * dt)
+
+
 def leapfrog_step(pos, vel, acc, dt):
-    vel += acc * dt/2 ## Basically a half step integration for velocity (Philip Mocz is the god here!{Maybe :P})
-    pos += vel * dt  ## Update the position of the particle (again refer Mocz for the equation)
-    vel += acc * dt/2 ## Half step to get v_{n+1}
-    return pos, vel ## We're done
+    wp.launch(kernel=_leapfrog_kernel, dim=pos.shape[0], inputs=[pos, vel, acc, dt])
+    return pos, vel

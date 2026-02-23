@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import warp as wp
 from density import compute_density
 from pressure import compute_pressure
 from forces import compute_acceleration
@@ -7,13 +8,20 @@ from boundaries import enforce_boundaries
 from integrator import leapfrog_step
 
 def run_simulation(config, pos, vel, m, h):
+    wp.init()
 
     Nt = int(np.ceil(config.tEnd / config.dt))
     frames = []
     t = 0.0
+    N = pos.shape[0]
+
+    rho = wp.zeros(N, dtype=float)
+    P = wp.zeros(N, dtype=float)
+    acc = wp.zeros(N, dtype=wp.vec2)
+    g_vec = wp.vec2(float(config.g_vec[0]), float(config.g_vec[1]))
 
     print("\n--- SPH Dam Break Simulation ---")
-    print(f"Particles: {pos.shape[0]}")
+    print(f"Particles: {N}")
     print(f"dx = {config.dx}")
     print(f"h = {h}")
     print(f"dt = {config.dt}")
@@ -23,36 +31,34 @@ def run_simulation(config, pos, vel, m, h):
     start_time = time.time()
 
     for i in range(Nt):
-
-        rho = compute_density(pos, m, h)
-        P = compute_pressure(rho,
-                             config.rho0,
-                             config.c0,
-                             config.gamma_eos)
-
-        acc = compute_acceleration(pos, vel, m,
-                                   rho, P, h,
-                                   config.alpha_visc,
-                                   config.c0,
-                                   config.g_vec)
+        compute_density(pos, m, h, rho)
+        compute_pressure(rho, config.rho0, config.c0, config.gamma_eos, P)
+        compute_acceleration(
+            pos,
+            vel,
+            m,
+            rho,
+            P,
+            h,
+            config.alpha_visc,
+            config.c0,
+            g_vec,
+            acc,
+        )
 
         pos, vel = leapfrog_step(pos, vel, acc, config.dt)
-        enforce_boundaries(pos, vel,
-                           config.Lx, config.Ly)
+        enforce_boundaries(pos, vel, config.Lx, config.Ly)
 
         t += config.dt
 
-        # Store ~100 frames
-        # if i % max(1, Nt // 50) == 0:
-        if i%10 == 0:
-            frames.append((pos.copy(), vel.copy(), t))
+        if i % 10 == 0:
+            frames.append((pos.numpy().copy(), vel.numpy().copy(), t))
 
-        # ---- VERBOSE PRINT ----
         if i % 50 == 0:
-
-            max_rho = float(np.max(rho))
-            max_speed = float(np.max(np.linalg.norm(vel, axis=1)))
-            CFL = config.c0 * config.dt / h
+            rho_np = rho.numpy()
+            vel_np = vel.numpy()
+            max_rho = float(np.max(rho_np))
+            max_speed = float(np.max(np.linalg.norm(vel_np, axis=1)))
 
             elapsed = time.time() - start_time
 
@@ -68,4 +74,3 @@ def run_simulation(config, pos, vel, m, h):
     print(f"\nSimulation complete in {total_time:.2f} seconds.\n")
 
     return frames
-
