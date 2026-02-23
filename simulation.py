@@ -23,7 +23,10 @@ def run_simulation(config, pos, vel, m, h):
     g_vec = wp.vec2(float(config.g_vec[0]), float(config.g_vec[1]))
     use_neighbor_search = bool(getattr(config, "use_neighbor_search", True))
     support_radius = 2.0 * h
-    neighbor_grid = create_neighbor_grid(config, h) if use_neighbor_search else None
+    if use_neighbor_search:
+        neighbor_grid, neighbor_points = create_neighbor_grid(config, h, N)
+    else:
+        neighbor_grid, neighbor_points = None, None
 
     print("\n--- SPH Dam Break Simulation ---")
     print(f"Particles: {N}")
@@ -38,7 +41,7 @@ def run_simulation(config, pos, vel, m, h):
 
     for i in range(Nt):
         if use_neighbor_search:
-            build_neighbor_grid(neighbor_grid, pos, support_radius)
+            build_neighbor_grid(neighbor_grid, pos, neighbor_points, support_radius)
 
         compute_density(
             pos,

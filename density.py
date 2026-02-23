@@ -13,10 +13,11 @@ def _density_neighbors_kernel(
 ):
     i = wp.tid()
 
-    rho_i = 0.0
+    rho_i = float(0.0)
     p_i = pos[i]
+    p_i3 = wp.vec3(p_i[0], p_i[1], 0.0)
 
-    query = wp.hash_grid_query(grid, p_i, support_radius)
+    query = wp.hash_grid_query(grid, p_i3, support_radius)
     j = int(0)
     while wp.hash_grid_query_next(query, j):
         dp = p_i - pos[j]
@@ -35,7 +36,7 @@ def _density_all_pairs_kernel(
     i = wp.tid()
     N = pos.shape[0]
 
-    rho_i = 0.0
+    rho_i = float(0.0)
     p_i = pos[i]
 
     for j in range(N):

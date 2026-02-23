@@ -25,9 +25,11 @@ def _acceleration_neighbors_kernel(
     rho_i = rho[i]
     P_i = P[i]
 
-    a_i = wp.vec2(0.0, 0.0)
+    ax = float(0.0)
+    ay = float(0.0)
+    p_i3 = wp.vec3(p_i[0], p_i[1], 0.0)
 
-    query = wp.hash_grid_query(grid, p_i, support_radius)
+    query = wp.hash_grid_query(grid, p_i3, support_radius)
     j = int(0)
     while wp.hash_grid_query_next(query, j):
         dp = p_i - pos[j]
@@ -49,9 +51,11 @@ def _acceleration_neighbors_kernel(
             c0,
         )
 
-        a_i -= m * (sym + pi_ij) * gradW_ij
+        coeff = -m * (sym + pi_ij)
+        ax += coeff * gradW_ij[0]
+        ay += coeff * gradW_ij[1]
 
-    acc[i] = a_i + g
+    acc[i] = wp.vec2(ax, ay) + g
 
 
 @wp.kernel
@@ -75,7 +79,8 @@ def _acceleration_all_pairs_kernel(
     rho_i = rho[i]
     P_i = P[i]
 
-    a_i = wp.vec2(0.0, 0.0)
+    ax = float(0.0)
+    ay = float(0.0)
 
     for j in range(N):
         dp = p_i - pos[j]
@@ -97,9 +102,11 @@ def _acceleration_all_pairs_kernel(
             c0,
         )
 
-        a_i -= m * (sym + pi_ij) * gradW_ij
+        coeff = -m * (sym + pi_ij)
+        ax += coeff * gradW_ij[0]
+        ay += coeff * gradW_ij[1]
 
-    acc[i] = a_i + g
+    acc[i] = wp.vec2(ax, ay) + g
 
 
 def compute_acceleration(
