@@ -32,4 +32,6 @@ def _boundary_kernel(
 
 
 def enforce_boundaries(pos, vel, Lx, Ly, damp=0.5):
-    wp.launch(kernel=_boundary_kernel, dim=pos.shape[0], inputs=[pos, vel, Lx, Ly, damp])
+    wp.launch(
+        kernel=_boundary_kernel, dim=pos.shape[0], inputs=[pos, vel, Lx, Ly, damp]
+    )

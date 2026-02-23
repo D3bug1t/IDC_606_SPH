@@ -6,6 +6,8 @@ from pressure import compute_pressure
 from forces import compute_acceleration
 from boundaries import enforce_boundaries
 from integrator import leapfrog_step
+from neighbors import create_neighbor_grid, build_neighbor_grid
+
 
 def run_simulation(config, pos, vel, m, h):
     wp.init()
@@ -19,6 +21,9 @@ def run_simulation(config, pos, vel, m, h):
     P = wp.zeros(N, dtype=float)
     acc = wp.zeros(N, dtype=wp.vec2)
     g_vec = wp.vec2(float(config.g_vec[0]), float(config.g_vec[1]))
+    use_neighbor_search = bool(getattr(config, "use_neighbor_search", True))
+    support_radius = 2.0 * h
+    neighbor_grid = create_neighbor_grid(config, h) if use_neighbor_search else None
 
     print("\n--- SPH Dam Break Simulation ---")
     print(f"Particles: {N}")
@@ -26,12 +31,24 @@ def run_simulation(config, pos, vel, m, h):
     print(f"h = {h}")
     print(f"dt = {config.dt}")
     print(f"Total steps = {Nt}")
+    print(f"Neighbor search = {'ON' if use_neighbor_search else 'OFF (all-pairs)'}")
     print("---------------------------------\n")
 
     start_time = time.time()
 
     for i in range(Nt):
-        compute_density(pos, m, h, rho)
+        if use_neighbor_search:
+            build_neighbor_grid(neighbor_grid, pos, support_radius)
+
+        compute_density(
+            pos,
+            m,
+            h,
+            rho,
+            use_neighbor_search=use_neighbor_search,
+            grid=neighbor_grid,
+            support_radius=support_radius,
+        )
         compute_pressure(rho, config.rho0, config.c0, config.gamma_eos, P)
         compute_acceleration(
             pos,
@@ -44,6 +61,9 @@ def run_simulation(config, pos, vel, m, h):
             config.c0,
             g_vec,
             acc,
+            use_neighbor_search=use_neighbor_search,
+            grid=neighbor_grid,
+            support_radius=support_radius,
         )
 
         pos, vel = leapfrog_step(pos, vel, acc, config.dt)
