@@ -22,9 +22,9 @@ def W_xy(dx: float, dy: float, h: float):
 
 @wp.func
 def gradW_xy(dx: float, dy: float, h: float):
-    r = wp.sqrt(dx * dx + dy * dy)
-    if r <= 1.0e-12:
-        return wp.vec2(0.0, 0.0)
+    r = max(wp.sqrt(dx * dx + dy * dy), 1.0e-6)
+    # if r <= 1.0e-6:
+    #     return wp.vec2(0.0, 0.0)
 
     q = r / h
     sigma = 10.0 / (7.0 * PI * h * h)

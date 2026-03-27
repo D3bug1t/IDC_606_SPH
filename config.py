@@ -12,11 +12,11 @@ class SPHConfig:
     rho0: float = 1000.0
     c0: float = 20.0
     gamma_eos: int = 7
-    alpha_visc: float = 1.0
+    alpha_visc: float = 0.6
     g_vec: np.ndarray = field(default_factory=lambda: np.array([0.0, -9.81]))
 
     # Discretization
-    dx: float = 0.07  ## Particle Spacing
+    dx: float = 0.02  ## Particle Spacing
     h_factor: float = 1.3  ## Smoothing factor (h = h_factor*dx)
 
     # Time
