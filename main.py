@@ -31,10 +31,10 @@ def main():
 
     writer = FFMpegWriter(fps=40)
 
-    anim.save("dam_break.mp4", writer=writer)
+    anim.save("dam_break_0.05dx.mp4", writer=writer)
 
     print("Saved dam_break.mp4")
-
+#
 
 if __name__ == "__main__":
     main()

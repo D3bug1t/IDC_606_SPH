@@ -76,25 +76,29 @@ def run_simulation(config, pos, vel, m, h):
 
         t += config.dt
 
-        if i % 10 == 0:
-            frames.append((pos.numpy().copy(), vel.numpy().copy(), t))
-
-        if i % 50 == 0:
-            compute_state_acceleration(pos, vel, rk4_workspace["k1_vel"])
-            rho_np = rho.numpy()
+        if i % 500 == 0:
+            print(i)
             vel_np = vel.numpy()
-            max_rho = float(np.max(rho_np))
             max_speed = float(np.max(np.linalg.norm(vel_np, axis=1)))
-
-            elapsed = time.time() - start_time
-
-            print(
-                f"Step {i:5d}/{Nt} | "
-                f"t = {t:6.3f}s | "
-                f"max rho = {max_rho:8.2f} | "
-                f"max |v| = {max_speed:6.3f} | "
-                f"elapsed = {elapsed:6.1f}s"
-            )
+            print('Max V = ', max_speed)
+            frames.append((pos.numpy().copy(), vel.numpy().copy(), t))
+#
+#        if i % 50 == 0:
+#            compute_state_acceleration(pos, vel, rk4_workspace["k1_vel"])
+#            rho_np = rho.numpy()
+#            vel_np = vel.numpy()
+#            max_rho = float(np.max(rho_np))
+#            max_speed = float(np.max(np.linalg.norm(vel_np, axis=1)))
+#
+#            elapsed = time.time() - start_time
+#
+       # print(
+        #        f"Step {i:5d}/{Nt} | "
+         #       f"t = {t:6.3f}s | ")
+#                f"max rho = {max_rho:8.2f} | "
+#                f"max |v| = {max_speed:6.3f} | "
+#                f"elapsed = {elapsed:6.1f}s"
+#            )
 
     total_time = time.time() - start_time
     print(f"\nSimulation complete in {total_time:.2f} seconds.\n")

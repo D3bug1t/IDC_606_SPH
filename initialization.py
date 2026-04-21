@@ -3,8 +3,8 @@ import warp as wp
 
 
 def initialize_particles(config):
-    xs = np.arange(config.dx / 2, 1.0, config.dx)
-    ys = np.arange(config.dx / 2, 2.0, config.dx)
+    xs = np.arange(config.dx / 2, 5.0, config.dx)
+    ys = np.arange(config.dx / 2, 10.0, config.dx)
 
     xx, yy = np.meshgrid(xs, ys)  ## Each(xx[i,j],yy[i,j]) represents a particle
     pos_np = np.column_stack((xx.ravel(), yy.ravel())).astype(

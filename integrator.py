@@ -22,28 +22,44 @@ def leapfrog_step(pos, vel, acc, dt):
     return pos, vel
 
 
+# --- FUSED RK4 KERNELS ---
+
 @wp.kernel
-def _copy_vec2_kernel(
-    src: wp.array(dtype=wp.vec2),
-    dst: wp.array(dtype=wp.vec2),
+def _rk4_init_kernel(
+    vel: wp.array(dtype=wp.vec2),
+    k1_pos: wp.array(dtype=wp.vec2),
 ):
     i = wp.tid()
-    dst[i] = src[i]
+    k1_pos[i] = vel[i]
 
 
 @wp.kernel
-def _combine_state_kernel(
-    base_pos: wp.array(dtype=wp.vec2),
-    base_vel: wp.array(dtype=wp.vec2),
-    delta_pos: wp.array(dtype=wp.vec2),
-    delta_vel: wp.array(dtype=wp.vec2),
-    scale: float,
-    out_pos: wp.array(dtype=wp.vec2),
-    out_vel: wp.array(dtype=wp.vec2),
+def _rk4_prepare_stage_kernel(
+    pos: wp.array(dtype=wp.vec2),
+    vel: wp.array(dtype=wp.vec2),
+    k_prev_pos: wp.array(dtype=wp.vec2),
+    k_prev_vel: wp.array(dtype=wp.vec2),
+    dt_scale: float,
+    stage_pos: wp.array(dtype=wp.vec2),
+    stage_vel: wp.array(dtype=wp.vec2),
+    k_next_pos: wp.array(dtype=wp.vec2),
 ):
     i = wp.tid()
-    out_pos[i] = base_pos[i] + delta_pos[i] * scale
-    out_vel[i] = base_vel[i] + delta_vel[i] * scale
+    
+    # Load once into registers to avoid redundant global memory reads
+    p = pos[i]
+    v = vel[i]
+    kp = k_prev_pos[i]
+    kv = k_prev_vel[i]
+    
+    # Compute new stage state
+    s_pos = p + kp * dt_scale
+    s_vel = v + kv * dt_scale
+    
+    # Write out to global memory
+    stage_pos[i] = s_pos
+    stage_vel[i] = s_vel
+    k_next_pos[i] = s_vel  # Fused copy: k_next_pos is always exactly the stage velocity
 
 
 @wp.kernel
@@ -61,10 +77,12 @@ def _rk4_finalize_kernel(
     dt: float,
 ):
     i = wp.tid()
-    pos[i] = pos[i] + (dt / 6.0) * (
+    dt_6 = dt / 6.0
+    
+    pos[i] = pos[i] + dt_6 * (
         k1_pos[i] + 2.0 * k2_pos[i] + 2.0 * k3_pos[i] + k4_pos[i]
     )
-    vel[i] = vel[i] + (dt / 6.0) * (
+    vel[i] = vel[i] + dt_6 * (
         k1_vel[i] + 2.0 * k2_vel[i] + 2.0 * k3_vel[i] + k4_vel[i]
     )
 
@@ -90,83 +108,59 @@ def create_rk4_workspace(num_particles):
 def rk4_step(pos, vel, dt, acceleration_fn, workspace):
     n = pos.shape[0]
 
-    wp.launch(kernel=_copy_vec2_kernel, dim=n, inputs=[vel, workspace["k1_pos"]])
+    # --- Stage 1 ---
+    wp.launch(kernel=_rk4_init_kernel, dim=n, inputs=[vel, workspace["k1_pos"]])
     acceleration_fn(pos, vel, workspace["k1_vel"])
 
+    # --- Stage 2 ---
     wp.launch(
-        kernel=_combine_state_kernel,
+        kernel=_rk4_prepare_stage_kernel,
         dim=n,
         inputs=[
-            pos,
-            vel,
-            workspace["k1_pos"],
-            workspace["k1_vel"],
-            0.5 * dt,
-            workspace["stage_pos"],
-            workspace["stage_vel"],
+            pos, vel, 
+            workspace["k1_pos"], workspace["k1_vel"], 
+            0.5 * dt, 
+            workspace["stage_pos"], workspace["stage_vel"], workspace["k2_pos"]
         ],
-    )
-    wp.launch(
-        kernel=_copy_vec2_kernel,
-        dim=n,
-        inputs=[workspace["stage_vel"], workspace["k2_pos"]],
     )
     acceleration_fn(workspace["stage_pos"], workspace["stage_vel"], workspace["k2_vel"])
 
+    # --- Stage 3 ---
     wp.launch(
-        kernel=_combine_state_kernel,
+        kernel=_rk4_prepare_stage_kernel,
         dim=n,
         inputs=[
-            pos,
-            vel,
-            workspace["k2_pos"],
-            workspace["k2_vel"],
-            0.5 * dt,
-            workspace["stage_pos"],
-            workspace["stage_vel"],
+            pos, vel, 
+            workspace["k2_pos"], workspace["k2_vel"], 
+            0.5 * dt, 
+            workspace["stage_pos"], workspace["stage_vel"], workspace["k3_pos"]
         ],
-    )
-    wp.launch(
-        kernel=_copy_vec2_kernel,
-        dim=n,
-        inputs=[workspace["stage_vel"], workspace["k3_pos"]],
     )
     acceleration_fn(workspace["stage_pos"], workspace["stage_vel"], workspace["k3_vel"])
 
+    # --- Stage 4 ---
     wp.launch(
-        kernel=_combine_state_kernel,
+        kernel=_rk4_prepare_stage_kernel,
         dim=n,
         inputs=[
-            pos,
-            vel,
-            workspace["k3_pos"],
-            workspace["k3_vel"],
-            dt,
-            workspace["stage_pos"],
-            workspace["stage_vel"],
+            pos, vel, 
+            workspace["k3_pos"], workspace["k3_vel"], 
+            dt, 
+            workspace["stage_pos"], workspace["stage_vel"], workspace["k4_pos"]
         ],
-    )
-    wp.launch(
-        kernel=_copy_vec2_kernel,
-        dim=n,
-        inputs=[workspace["stage_vel"], workspace["k4_pos"]],
     )
     acceleration_fn(workspace["stage_pos"], workspace["stage_vel"], workspace["k4_vel"])
 
+    # --- Finalize ---
     wp.launch(
         kernel=_rk4_finalize_kernel,
         dim=n,
         inputs=[
-            pos,
-            vel,
-            workspace["k1_pos"],
-            workspace["k1_vel"],
-            workspace["k2_pos"],
-            workspace["k2_vel"],
-            workspace["k3_pos"],
-            workspace["k3_vel"],
-            workspace["k4_pos"],
-            workspace["k4_vel"],
+            pos, vel,
+            workspace["k1_pos"], workspace["k1_vel"],
+            workspace["k2_pos"], workspace["k2_vel"],
+            workspace["k3_pos"], workspace["k3_vel"],
+            workspace["k4_pos"], workspace["k4_vel"],
             dt,
         ],
     )
