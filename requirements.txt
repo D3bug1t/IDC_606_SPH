@@ -1,3 +1,13 @@
-numpy
-matplotlib
-warp-lang
+# Core numerical and plotting dependencies
+numpy>=1.24
+matplotlib>=3.7
+
+# NVIDIA Warp runtime for GPU kernels
+warp-lang>=1.0
+
+# Web server for interactive demo
+fastapi>=0.110
+uvicorn[standard]>=0.29
+
+# Note: ffmpeg is also required for MP4 export, but it must be installed
+# separately as a system executable, not through pip.

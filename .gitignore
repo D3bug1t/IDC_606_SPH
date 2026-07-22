@@ -1,2 +1,23 @@
 __pycache__/
 .vscode
+.ruff_cache/
+
+# Profiling outputs
+*.sqlite
+*.nsys-rep
+*.ncu-rep
+
+# LaTeX build artifacts
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+
+# macOS
+.DS_Store
+*.inetloc
+
+# Pre-computed cache (lives in the GitHub Pages repo)
+sph_cache/
+
